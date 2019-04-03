@@ -10,14 +10,45 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
-#Reading in xlsx 
+#loading libraries
 
+library(caret)
 library(readxl)
+library(tidyverse)
 
-taipei_data <- read_excel("Real_estate_valuation_data_set.xlsx")
+#Reading in the xlsx dataset
+
+taipei_data <- read_excel("Real_estate_valuation_data_set.xlsx") %>%
+  janitor::clean_names()
 ```
 
 ```{r}
+#Partitioning the dataset
+data(taipei_data)
 
+## 75% of the sample size
+smp_size <- floor(0.80 * nrow(taipei_data))
+
+## set the seed to make your partition reproducible
+set.seed(123)
+train_taipei <- sample(seq_len(nrow(taipei_data)), size = smp_size)
+
+train <- taipei_data[train_taipei, ]
+test <- taipei_data[-train_taipei, ]
 ```
 
+```{r}
+#Tuning parameters
+```
+
+```{r}
+#Ridge Regression
+```
+
+```{r}
+#Lasso Regression
+```
+
+```{r}
+#Linear Regression
+```
