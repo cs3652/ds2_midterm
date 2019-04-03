@@ -1,0 +1,23 @@
+---
+title: "Untitled"
+author: "Chirag Shah"
+date: '2019-04-03'
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#Reading in xlsx 
+
+library(readxl)
+
+taipei_data <- read_excel("Real_estate_valuation_data_set.xlsx")
+```
+
+```{r}
+
+```
+
