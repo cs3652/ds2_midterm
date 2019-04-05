@@ -15,11 +15,24 @@ knitr::opts_chunk$set(echo = TRUE)
 library(caret)
 library(readxl)
 library(tidyverse)
+library(glmnet)
+library(ISLR)
+library(corrplot)
 
 #Reading in the xlsx dataset
 
 taipei_data <- read_excel("Real_estate_valuation_data_set.xlsx") %>%
   janitor::clean_names()
+```
+
+```{r}
+data(taipei_data)
+
+taipei_data <- na.omit(taipei_data)
+x <- model.matrix(y_house_price_of_unit_area~. ,taipei_data)[,-1]
+y <- taipei_data$y_house_price_of_unit_area
+
+corrplot(cor(x))
 ```
 
 ```{r}
@@ -38,17 +51,55 @@ test <- taipei_data[-train_taipei, ]
 ```
 
 ```{r}
-#Tuning parameters
-```
-
-```{r}
 #Ridge Regression
+ctrl1 <- trainControl(method = "repeatedcv", number = 10, repeats = 5)
+
+set.seed(123)
+ridge.fit <- train(x, y,
+                     method = "glmnet",
+                     tuneGrid = expand.grid(alpha = 0, 
+                                            lambda = exp(seq(-1, 10, length = 100))),
+                   # preProc = c("center", "scale"),
+                     trControl = ctrl1)
+
+plot(ridge.fit, xTrans = function(x) log(x))
+
+ridge.fit$bestTune
+
+coef(ridge.fit$finalModel,ridge.fit$bestTune$lambda)
 ```
 
 ```{r}
 #Lasso Regression
+set.seed(123)
+lasso.fit <- train(x, y,
+                     method = "glmnet",
+                     tuneGrid = expand.grid(alpha = 1, 
+                                            lambda = exp(seq(-1, 5, length=100))),
+                   # preProc = c("center", "scale"),
+                     trControl = ctrl1)
+
+plot(lasso.fit, xTrans = function(x) log(x))
+
+lasso.fit$bestTune
+
+coef(lasso.fit$finalModel,lasso.fit$bestTune$lambda)
 ```
 
 ```{r}
 #Linear Regression
+set.seed(2)
+lm.fit <- train(x, y,
+                method = "lm",
+                trControl = ctrl1)
+```
+
+
+```{r, fig.width=5}
+#Comparison using MSE
+resamp <- resamples(list(lasso = lasso.fit, ridge = ridge.fit, lm = lm.fit))
+summary(resamp)
+
+parallelplot(resamp, metric = "RMSE")
+bwplot(resamp, metric = "RMSE")
 ```
