@@ -18,6 +18,8 @@ library(tidyverse)
 library(glmnet)
 library(ISLR)
 library(corrplot)
+library(splines)
+library(mgcv)
 
 #Reading in the xlsx dataset
 
@@ -33,6 +35,16 @@ x <- model.matrix(y_house_price_of_unit_area~. ,taipei_data)[,-1]
 y <- taipei_data$y_house_price_of_unit_area
 
 corrplot(cor(x))
+
+theme1 <- trellis.par.get()
+theme1$plot.symbol$col <- rgb(.2, .4, .2, .5)
+theme1$plot.symbol$pch <- 16
+theme1$plot.line$col <- rgb(.8, .1, .1, 1)
+theme1$plot.line$lwd <- 2
+theme1$strip.background$col <- rgb(.0, .2, .6, .2)
+trellis.par.set(theme1)
+featurePlot(x, y, plot = "scatter", labels = c("","Y"),
+            type = c("p"), layout = c(4, 2))
 ```
 
 ```{r}
@@ -94,12 +106,73 @@ lm.fit <- train(x, y,
                 trControl = ctrl1)
 ```
 
+```{r}
+###K-Nearest Neighbors fit
+set.seed(123)
+#Spliting data as training and test set. Using createDataPartition() function from caret
+#indxTrain <- createDataPartition(y = re_data$house_price, p = 0.80, list = FALSE)
+#training <- re_data[indxTrain,]
+#testing <- re_data[-indxTrain,]
+#dim(training); dim(testing);
+#train: 332, 8
+#test: 82, 8
+
+trainX <- train[,names(train) != "y_house_price_of_unit_area"]
+preProcValues <- preProcess(x = trainX,method = c("center", "scale"))
+preProcValues
+
+set.seed(123)
+trctrl <- trainControl(method = "repeatedcv", number = 10, repeats = 5)
+knn_fit <- train(y_house_price_of_unit_area ~., data = train, method = "knn",
+            trControl = trctrl,
+            preProcess = c("center", "scale"),
+            tuneLength = 10)
+knn_fit
+# Plot model error RMSE vs different values of k
+ggplot(knn_fit)
+# Best tuning parameter k that minimizes the RMSE
+knn_fit$bestTune
+# Make predictions on the test data
+knn_predict <- knn_fit %>% predict(test)
+# Compute the prediction error RMSE
+RMSE(knn_predict, test$y_house_price_of_unit_area)
+```
+
+###GAM models
+```{r}
+gam.m1 <- gam(y_house_price_of_unit_area ~ x1_transaction_date + x2_house_age + x3_distance_to_the_nearest_mrt_station + x4_number_of_convenience_stores + x5_latitude + x6_longitude, data = taipei_data)
+
+gam.m2 <- gam(y_house_price_of_unit_area ~ x1_transaction_date + x2_house_age + s(x3_distance_to_the_nearest_mrt_station) + x4_number_of_convenience_stores + x5_latitude + x6_longitude, data = taipei_data)
+#Spline term applied to distance to mrt station
+
+gam.m3 <- gam(y_house_price_of_unit_area ~ x1_transaction_date + s(x2_house_age) + x3_distance_to_the_nearest_mrt_station + x4_number_of_convenience_stores + x5_latitude + x6_longitude, data = taipei_data)
+#spline term applied to house age
+
+gam.m4 <- gam(y_house_price_of_unit_area ~ x1_transaction_date + s(x2_house_age) + s(x3_distance_to_the_nearest_mrt_station) + x4_number_of_convenience_stores + x5_latitude + x6_longitude, data = taipei_data)
+#Both house age and distance to mrt station are splined
+
+anova(gam.m1, gam.m2, gam.m3, gam.m4, test = "F")
+summary(gam.m2)
+summary(gam.m3)
+summary(gam.m4)
+#GAM M4 has best R^2 value
+plot(gam.m2)
+plot(gam.m3)
+```  
 
 ```{r, fig.width=5}
 #Comparison using MSE
-resamp <- resamples(list(lasso = lasso.fit, ridge = ridge.fit, lm = lm.fit))
+resamp <- resamples(list(lasso = lasso.fit, ridge = ridge.fit, lm = lm.fit, knn = knn_fit))
 summary(resamp)
 
 parallelplot(resamp, metric = "RMSE")
 bwplot(resamp, metric = "RMSE")
 ```
+
+The best GAM Model has an R-Squared of: R-sq.(adj) =  0.687
+The Lasso has an R-Squared of 0.599
+The ridge has an R-Squared of 0.599
+The linear model has an R -squared of 0.607
+The KNN model has an r-squared of 0.650
+
+because the Gam4 model (with 2 splines) has the best R-squared it is the preferred model. we should also take note of the RMSE of the other models to make the comparison. The GAM did not provide an RMSE so it cannot be used in the RMSE comparison. 
