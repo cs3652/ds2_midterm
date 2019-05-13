@@ -176,3 +176,4 @@ The linear model has an R -squared of 0.607
 The KNN model has an r-squared of 0.650
 
 because the Gam4 model (with 2 splines) has the best R-squared it is the preferred model. we should also take note of the RMSE of the other models to make the comparison. The GAM did not provide an RMSE so it cannot be used in the RMSE comparison. 
+
