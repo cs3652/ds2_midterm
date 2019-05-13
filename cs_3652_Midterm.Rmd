@@ -280,7 +280,7 @@ p211_sc <- vip(ridge.fit2, num_features = 10, bar = FALSE, value = "rss") + ggti
 gridExtra::grid.arrange(p111_sc, p211_sc, ncol = 2)
 ``` 
 
-#The ridge regression was ran both with and without standardizing predictors. In doing so we were better able to discern the relative importance of each predictor and ensure that their is equal contribution from each of the predictors. 
+#The ridge regression was run both with and without standardizing predictors. In doing so we were better able to discern the relative importance of each predictor and ensure that their is equal contribution from each of the predictors. 
 
 ##### Lasso
 ###### Assumptions: Only a small number of p variables are actually relevant to the outcome.
@@ -401,7 +401,7 @@ summary(sc_clust5)
 #Based on the summaries of each new cluster, the median house price in cluster one is 174000 New Taiwan Dollars/Ping whereas the the median house price in cluster two is 400500 New Taiwan Dollars/Ping. We can name these clusters 'Affordable' and 'Unaffordable'. Unfortunately for the citizens of Taipei, there were 36 sales of affordable houses (during the study dates between 2013 and 2014) which only represents 8.7% of the sales. This confirms our initial intuition of drastically increasing housing costs in Taipei (as talked about in our project proposal). 
 
 #Importance of scaling
-#The importance of each predictor changes when it is scaled. There is a better argument for scaling because variables in this dataset are in different units such as year, meter, and New Taiwan Dollar/ping. Thus scaling will ensure that variables like distance to the nearest MRT station and house age will have equal contribution to the clustering algorithm thus allowing the true depiction of each variable's impact. Moreover, scaling takes into account certain variables that have a smaller range of values compared to others. Therefore, scaling was used for not only the clustering algorithm, but also for many other modeling techniques. 
+#The importance of each predictor changes when it is scaled. There is a better argument for scaling because variables in this dataset are in different units such as year, meter, and New Taiwan Dollar/ping. Thus scaling will ensure that variables like distance to the nearest MRT station and house age will have equal contribution to the methods used such as our clustering algorithm thus allowing the true depiction of each variable's impact. Moreover, scaling takes into account certain variables that have a smaller range of values compared to others. Therefore, scaling was used for not only the clustering algorithm, but also for many other modeling techniques. 
 
 ## Conclusion
 ```{r, include=FALSE}
