@@ -81,8 +81,6 @@ stat.desc(taipei_data) %>% round() %>%  kable(full_width = F, font_size=8)
 ```
 
 
-
-
 ```{r, include=FALSE}
 ### Designating the Predictors and Outcome
 taipei_data <- na.omit(taipei_data) 
@@ -108,8 +106,10 @@ theme1$plot.line$col <- rgb(.8, .1, .1, 1)
 theme1$plot.line$lwd <- 2
 theme1$strip.background$col <- rgb(.0, .2, .6, .2)
 trellis.par.set(theme1)
-featurePlot(x, y, plot = "scatter", labels = c("","Y"),
+scatterplot <- featurePlot(x, y, plot = "scatter", labels = c("","Y"),
             type = c("p"), layout = c(4, 2))
+
+ggsave("scatterplot.jpeg", plot = last_plot(), device = "jpeg")
 ```
 
 We can see that there may be a non-linear relationship between house price and distance to MRT station, and between house price and house age. We will test both of these terms independently and together as spline terms in GAM models. Transaction date and distance to convenience stores appear to be categorical predictors.
