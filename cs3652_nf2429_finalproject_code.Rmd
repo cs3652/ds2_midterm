@@ -34,6 +34,11 @@ library(ggplot2)
 library(igraph)
 library(ape)
 library(caTools)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(ranger)
+library(gbm)
 ```
 
 ```{r data cleaning, message=F, include=FALSE}
@@ -58,6 +63,7 @@ taipei_data  =
 ```
 
 ####Descriptive Statistics
+
 ```{r, echo=FALSE}
 stat.desc(taipei_data) %>% round() %>%  kable(full_width = F, font_size=8)
 ```
@@ -77,8 +83,8 @@ y <- taipei_data$house_price
 corrplot(cor(x))
 ```
 
-
 ###Scatterplot
+
 ```{r, echo=FALSE}
 theme1 <- trellis.par.get()
 theme1$plot.symbol$col <- rgb(.2, .4, .2, .5)
@@ -165,7 +171,7 @@ summary(sc_clust5)
 #using caTools
 set.seed(1)
 split = sample.split(taipei_data$house_price, SplitRatio = 0.8)
-train = subset(taipei_data_data, split==TRUE)
+train = subset(taipei_data, split==TRUE)
 test = subset(taipei_data, split==FALSE)
 #using rpart
 set.seed(1)
@@ -184,6 +190,7 @@ RMSE(tree.pred, test$house_price)
 ```
 
 ###Random Forests
+
 ```{r}
 set.seed(1)
 rf_m <- train(house_price~., data = train, method = "rf", prox = TRUE)
@@ -200,6 +207,7 @@ RMSE(rf.pred, test$house_price)
 ```
 
 ###GBM boosting
+
 ```{r}
 set.seed(1)
 gbm_fit <- train(house_price~., data = train, 
@@ -227,6 +235,7 @@ RMSE(gbm.pred, test$house_price)
 ```
 
 ##Variable importance
+
 ```{r}
 set.seed(1)
 rf2.final.imp <- ranger(house_price~., train, 
@@ -430,6 +439,7 @@ RMSE(linear_test, testing$house_price)
 ```
 
 ## Conclusion
+
 ```{r, include=FALSE}
 #Comparison using resample function
 #resamp <- resamples(list(lasso = lasso.fit, ridge = ridge.fit, lm = lm.fit, knn = knn_fit))
