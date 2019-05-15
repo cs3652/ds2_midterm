@@ -33,6 +33,7 @@ library(gplots)
 library(ggplot2)
 library(igraph)
 library(ape)
+library(caTools)
 ```
 
 ```{r data cleaning, message=F, include=FALSE}
@@ -88,197 +89,6 @@ theme1$strip.background$col <- rgb(.0, .2, .6, .2)
 trellis.par.set(theme1)
 featurePlot(x, y, plot = "scatter", labels = c("","Y"),
             type = c("p"), layout = c(4, 2))
-```
-
-## Models
-### Summary of Models Used
-Model | R^2 | RMSE 
-------------- | ------------- | ------------- 
-GAM  | 0.687 | N/A
-MARS | 0.7005081 | 7.568432 
-KNN | 0.6545951 | 8.208905 
-Ridge Regression | 0.599 | 8.799873 
-Lasso | 0.599 | 8.810508 
-Linear Regression | 0.5824 | 8.782313 
-
-#### Partitioning the Data Set 
-
-```{r, echo=FALSE, message=F}
-#Partitioning the dataset
-data(taipei_data)
-
-## 75% of the sample size
-smp_size <- floor(0.80 * nrow(taipei_data))
-
-## set the seed to make your partition reproducible
-set.seed(123)
-train_taipei <- sample(seq_len(nrow(taipei_data)), size = smp_size)
-train <- taipei_data[train_taipei, ]
-test <- taipei_data[-train_taipei, ]
-```
-
-#### GAM
-
-```{r GAM calc, echo=FALSE, include=FALSE, message=F}
-gam.m1 <- gam(house_price ~ transaction_date + house_age + distance_mrt + conv_stores + latitude + longitude, data = taipei_data)
-
-gam.m2 <- gam(house_price ~ transaction_date + house_age + s(distance_mrt) + conv_stores + latitude + longitude, data = taipei_data)
-
-#Spline term applied to distance to mrt station
-
-gam.m3 <- gam(house_price ~ transaction_date + s(house_age) + distance_mrt + conv_stores + latitude + longitude, data = taipei_data)
-
-#spline term applied to house age
-
-gam.m4 <- gam(house_price ~ transaction_date + s(house_age) + s(distance_mrt) + conv_stores + latitude + longitude, data = taipei_data)
-
-#Both house age and distance to mrt station are splined
-```
-
-```{r, echo=FALSE, include=FALSE}
-anova(gam.m1, gam.m2, gam.m3, gam.m4, test = "F")
-#summary(gam.m2)
-#summary(gam.m3)
-#summary(gam.m4)
-
-
-plot(gam.m2)
-plot(gam.m3)
-```
-
-##### MARS
-
-```{r, echo=FALSE, fig.width=6, fig.height=4}
-set.seed(2)
-mars_grid <- expand.grid(degree = 1:2, nprune = 2:20)
-ctrl1 <- trainControl(method = "cv", number = 10)
-
-mars.fit <- train(x, y, method = "earth", tuneGrid = mars_grid, trControl = ctrl1)
-
-ggplot(mars.fit)
-```
-
-```{r, include=FALSE}
-print(mars.fit$bestTune)
-print(coef(mars.fit$finalModel))
-print(mars.fit)
-```
-
-```{r marspredictors, echo=FALSE, include=FALSE}
-p1 <- vip(mars.fit, num_features = 10, bar = FALSE, value = "gcv") + ggtitle("GCV")
-p2 <- vip(mars.fit, num_features = 10, bar = FALSE, value = "rss") + ggtitle("RSS")
-gridExtra::grid.arrange(p1, p2, ncol = 2)
-``` 
-
-##### KNN
-
-```{r, include=FALSE}
-
-trainX <- train[,names(train) != "house_price"]
-preProcValues <- preProcess(x = trainX,method = c("center", "scale"))
-preProcValues
-set.seed(1)
-trctrl <- trainControl(method = "repeatedcv", number = 10, repeats = 5)
-knn_fit <- train(house_price ~., data = train, method = "knn",
-            trControl = trctrl,
-            preProcess = c("center", "scale"),
-            tuneLength = 10)
-knn_fit
-```
-```{r, echo=FALSE, include=TRUE, fig.width=4, fig.height=4}
-# Plot model error RMSE vs different values of k
-ggplot(knn_fit)
-```
-```{r, include=FALSE}
-
-# Best tuning parameter k that minimizes the RMSE
-knn_fit$bestTune
-# Make predictions on the test data
-knn_predict <- knn_fit %>% predict(test)
-
-# Compute the prediction error RMSE
-RMSE(knn_predict, test$house_price)
-```
-
-##### Ridge Regression
-
-```{r, echo=FALSE, include=FALSE}
-ctrl1 <- trainControl(method = "repeatedcv", number = 10, repeats = 5)
-set.seed(123)
-ridge.fit <- train(x, y,
-                     method = "glmnet",
-                     tuneGrid = expand.grid(alpha = 0, 
-                                            lambda = exp(seq(-1, 10, length = 100))),
-                   # preProc = c("center", "scale"),
-                     trControl = ctrl1)
-plot(ridge.fit, xTrans = function(x) log(x))
-ridge.fit$bestTune
-coef(ridge.fit$finalModel,ridge.fit$bestTune$lambda)
-```
-```{r, echo=FALSE, include=FALSE}
-p111 <- vip(ridge.fit, num_features = 10, bar = FALSE, value = "gcv") + ggtitle("GCV")
-p211 <- vip(ridge.fit, num_features = 10, bar = FALSE, value = "rss") + ggtitle("RSS")
-gridExtra::grid.arrange(p111, p211, ncol = 2)
-``` 
-
-```{r, echo=FALSE, include=FALSE}
-ctrl1 <- trainControl(method = "repeatedcv", number = 10, repeats = 5)
-set.seed(123)
-ridge.fit2 <- train(x, y,
-                     method = "glmnet",
-                     tuneGrid = expand.grid(alpha = 0, 
-                                            lambda = exp(seq(-1, 10, length = 100))),
-                     preProc = c("center", "scale"),
-                     trControl = ctrl1)
-plot(ridge.fit2, xTrans = function(x) log(x))
-ridge.fit2$bestTune
-coef(ridge.fit2$finalModel,ridge.fit2$bestTune$lambda)
-```
-```{r ridgereg, echo=FALSE, include=FALSE}
-p111_sc <- vip(ridge.fit2, num_features = 10, bar = FALSE, value = "gcv") + ggtitle("GCV")
-p211_sc <- vip(ridge.fit2, num_features = 10, bar = FALSE, value = "rss") + ggtitle("RSS")
-gridExtra::grid.arrange(p111_sc, p211_sc, ncol = 2)
-``` 
-
-##### Lasso
-
-```{r, include=FALSE}
-set.seed(123)
-lasso.fit <- train(x, y, method = "glmnet", tuneGrid = expand.grid(alpha = 1, lambda = exp(seq(-5, 5, length=100))), trControl = ctrl1)
-
-plot(lasso.fit, xTrans = function(x) log(x))
-
-lasso.fit$bestTune
-
-coef(lasso.fit$finalModel,lasso.fit$bestTune$lambda)
-```
-
-```{r, echo=FALSE, fig.width=4, fig.height=4}
-plot(lasso.fit, xTrans = function(x) log(x))
-```
-
-##### Linear
-
-```{r, echo=FALSE, include=FALSE}
-set.seed(2)
-lm.fit <- train(x, y,
-                method = "lm",
-                trControl = ctrl1)
-summary(lm.fit)
-```
-
-```{r lmpred, echo=FALSE, include=FALSE}
-p11 <- vip(lm.fit, num_features = 10, bar = FALSE, value = "gcv") + ggtitle("GCV")
-p21 <- vip(lm.fit, num_features = 10, bar = FALSE, value = "rss") + ggtitle("RSS")
-gridExtra::grid.arrange(p11, p21, ncol = 2)
-``` 
-
-```{r calculations, include=FALSE}
-sqrt(mean(residuals(lm.fit)^2))
-summary(gam.m4)
-summary(mars.fit)
-sqrt(mean(residuals(ridge.fit)^2))
-sqrt(mean(residuals(lasso.fit)^2))
 ```
 
 #####Clustering
@@ -349,11 +159,291 @@ summary(sc_clust4)
 summary(sc_clust5)
 ```
 
+###Regression Trees
+
+```{r}
+#using caTools
+set.seed(1)
+split = sample.split(taipei_data$house_price, SplitRatio = 0.8)
+train = subset(taipei_data_data, split==TRUE)
+test = subset(taipei_data, split==FALSE)
+#using rpart
+set.seed(1)
+tree1 <- rpart(formula = house_price~., data = train)
+plotcp(tree1)
+rpart.plot(tree1)
+cpTable <- printcp(tree1)
+minErr <- which.min(cpTable[,5])
+#prune tree
+set.seed(1)
+tree2 <- prune(tree1, cpTable[minErr,1]) #prune based on minimum cv error
+rpart.plot(tree2)
+plotcp(tree2)
+tree.pred = predict(tree2, newdata = test)
+RMSE(tree.pred, test$house_price)
+```
+
+###Random Forests
+```{r}
+set.seed(1)
+rf_m <- train(house_price~., data = train, method = "rf", prox = TRUE)
+print(rf_m)
+#optimal mtry value is 2
+set.seed(1)
+rf <- randomForest(house_price~., data = train, mtry = 2)
+print(rf)
+plot(rf)
+varImpPlot(rf)
+rf.pred <- predict(rf, newdata = test)
+RMSE(rf.pred, test$house_price)
+#tried to do model tuning in caret, processing took so long that the model fit stopped running.
+```
+
+###GBM boosting
+```{r}
+set.seed(1)
+gbm_fit <- train(house_price~., data = train, 
+                 method = "gbm", 
+                 verbose = FALSE)
+print(gbm_fit)
+plot(gbm_fit)
+gbm.pred <- predict(gbm_fit, newdata = test)
+RMSE(gbm.pred, test$house_price)
+#try tuning gbm
+#gbm2_grid <- expand.grid(n.trees = c(2000,3000,4000),
+                        #interaction.depth = 1:6,
+                        #shrinkage = c(0.001,0.003,0.005),
+                        #n.minobsinnode = 1)
+#set.seed(1)
+#gbm2_fit <- train(house_price~., data = train, 
+                 #tuneGrid = gbm2_grid,
+                 #trControl = trctrl,
+                # method = "gbm",
+                 #verbose = FALSE)
+#plot(gbm2_fit)
+#gbm2.pred <- predict(gbm2_fit, newdata = test)
+#RMSE(gbm2.pred, test$house_price)
+#don't include - RMSE was higher for untuned model
+```
+
+##Variable importance
+```{r}
+set.seed(1)
+rf2.final.imp <- ranger(house_price~., train, 
+                        mtry = 2, 
+                        min.node.size = 5,
+                        importance = "impurity") 
+barplot(sort(ranger::importance(rf2.final.imp), decreasing = FALSE), 
+        las = 2, horiz = TRUE, cex.names = 0.7,
+        col = colorRampPalette(colors = c("cyan","blue"))(8))
+#doesn't tell us anything new that the varImp plot from randomforests already found
+set.seed(1)
+rf2.final.per <- ranger(house_price~., train, 
+                        mtry = 2, 
+                        min.node.size = 5,
+                        importance = "permutation",
+                        scale.permutation.importance = TRUE) 
+barplot(sort(ranger::importance(rf2.final.per), decreasing = FALSE), 
+        las = 2, horiz = TRUE, cex.names = 0.7,
+        col = colorRampPalette(colors = c("cyan","blue"))(8))
+summary(gbm_fit$finalModel, las = 2, cBars = 19, cex.names = 0.6)
+#relative influence of predictors in GBM model
+```
+
+## Models
+
+#### Partitioning the Data Set 
+
+```{r, echo=FALSE, message=F}
+#Partitioning the dataset
+data(taipei_data)
+
+## 75% of the sample size
+smp_size <- floor(0.80 * nrow(taipei_data))
+
+## set the seed to make your partition reproducible
+set.seed(123)
+train_taipei <- sample(seq_len(nrow(taipei_data)), size = smp_size)
+train <- taipei_data[train_taipei, ]
+test <- taipei_data[-train_taipei, ]
+```
+
+#### GAM
+
+```{r GAM calc, echo=FALSE, include=FALSE, message=F}
+set.seed(123)
+#Spliting data as training and test set. Using createDataPartition() function from caret
+
+indxTrain <- createDataPartition(y = taipei_data$house_price, p = 0.80, list = FALSE)
+training <- taipei_data[indxTrain,]
+testing <- taipei_data[-indxTrain,]
+gam.m1 <- gam(house_price ~ transaction_date + house_age + distance_mrt + conv_stores + latitude + longitude, data = training)
+gam.m2 <- gam(house_price ~ transaction_date + house_age + s(distance_mrt) + conv_stores + latitude + longitude, data = training)
+
+#Spline term applied to distance to mrt station
+gam.m3 <- gam(house_price ~ transaction_date + s(house_age) + distance_mrt + conv_stores + latitude + longitude, data = training)
+
+#spline term applied to house age
+gam.m4 <- gam(house_price ~ transaction_date + s(house_age) + s(distance_mrt) + conv_stores + latitude + longitude, data = training)
+
+#Both house age and distance to mrt station are splined
+anova(gam.m1, gam.m2, gam.m3, gam.m4, test = "F")
+summary(gam.m2)
+summary(gam.m3)
+summary(gam.m4)
+
+#GAM M4 has best R^2 value
+plot(gam.m2)
+plot(gam.m3)
+p.m4 = predict(gam.m4, newdata = testing)
+RMSE(p.m4, testing$house_price) 
+```  
+
+##### MARS
+
+```{r, echo=FALSE, fig.width=6, fig.height=4}
+set.seed(2)
+mars_grid <- expand.grid(degree = 1:2, nprune = 2:20)
+ctrl1 <- trainControl(method = "cv", number = 10)
+
+mars.fit <- train(x, y, method = "earth", tuneGrid = mars_grid, trControl = ctrl1)
+
+ggplot(mars.fit)
+```
+
+```{r, include=FALSE}
+print(mars.fit$bestTune)
+print(coef(mars.fit$finalModel))
+print(mars.fit)
+```
+
+```{r marspredictors, echo=FALSE, include=FALSE}
+p1 <- vip(mars.fit, num_features = 10, bar = FALSE, value = "gcv") + ggtitle("GCV")
+p2 <- vip(mars.fit, num_features = 10, bar = FALSE, value = "rss") + ggtitle("RSS")
+gridExtra::grid.arrange(p1, p2, ncol = 2)
+``` 
+
+```{r}
+#Computing RMSE for MARS
+mars_test = predict(mars.fit, newdata = testing)
+RMSE(mars_test, testing$house_price) 
+```
+
+##### KNN
+
+```{r}
+set.seed(123)
+#Spliting data as training and test set. Using createDataPartition() function from caret
+indxTrain <- createDataPartition(y = taipei_data$house_price, p = 0.80, list = FALSE)
+training <- taipei_data[indxTrain,]
+testing <- taipei_data[-indxTrain,]
+dim(training); dim(testing);
+#train: 332, 7
+#test: 82, 7
+set.seed(1)
+trctrl <- trainControl(method = "repeatedcv", number = 10, repeats = 5)
+knn_fit <- train(house_price ~., data = training, method = "knn",
+            trControl = trctrl,
+            preProcess = c("center", "scale"),
+            tuneLength = 10)
+knn_fit
+# Plot model error RMSE vs different values of k
+ggplot(knn_fit)
+# Best tuning parameter k that minimizes the RMSE
+knn_fit$bestTune
+# Make predictions on the test data
+knn_predict <- knn_fit %>% predict(testing)
+# Compute the prediction error RMSE
+RMSE(knn_predict, testing$house_price)
+```
+
+##### Ridge Regression
+
+```{r, echo=FALSE, include=FALSE}
+#Scaled Ridge Regression
+ctrl1 <- trainControl(method = "repeatedcv", number = 10, repeats = 5)
+set.seed(123)
+ridge.fit2 <- train(x, y,
+                     method = "glmnet",
+                     tuneGrid = expand.grid(alpha = 0, 
+                                            lambda = exp(seq(-1, 10, length = 100))),
+                     preProc = c("center", "scale"),
+                     trControl = ctrl1)
+plot(ridge.fit2, xTrans = function(x) log(x))
+ridge.fit2$bestTune
+coef(ridge.fit2$finalModel,ridge.fit2$bestTune$lambda)
+```
+```{r ridgereg, echo=FALSE, include=FALSE}
+p111_sc <- vip(ridge.fit2, num_features = 10, bar = FALSE, value = "gcv") + ggtitle("GCV")
+p211_sc <- vip(ridge.fit2, num_features = 10, bar = FALSE, value = "rss") + ggtitle("RSS")
+gridExtra::grid.arrange(p111_sc, p211_sc, ncol = 2)
+``` 
+
+```{r}
+ridge_test = predict(ridge.fit2, newdata = testing)
+RMSE(ridge_test, testing$house_price) 
+```
+
+##### Lasso
+
+```{r, include=FALSE}
+set.seed(123)
+lasso.fit <- train(x, y, method = "glmnet", tuneGrid = expand.grid(alpha = 1, lambda = exp(seq(-5, 5, length=100))), trControl = ctrl1)
+
+plot(lasso.fit, xTrans = function(x) log(x))
+
+lasso.fit$bestTune
+
+coef(lasso.fit$finalModel,lasso.fit$bestTune$lambda)
+```
+
+```{r, echo=FALSE, fig.width=4, fig.height=4}
+plot(lasso.fit, xTrans = function(x) log(x))
+```
+
+```{r}
+#computing RMSE for Lasso
+lasso_test = predict(lasso.fit, newdata = testing)
+RMSE(lasso_test, testing$house_price) 
+```
+
+##### Linear
+
+```{r, echo=FALSE, include=FALSE}
+set.seed(2)
+lm.fit <- train(x, y,
+                method = "lm",
+                trControl = ctrl1)
+summary(lm.fit)
+```
+
+```{r lmpred, echo=FALSE, include=FALSE}
+p11 <- vip(lm.fit, num_features = 10, bar = FALSE, value = "gcv") + ggtitle("GCV")
+p21 <- vip(lm.fit, num_features = 10, bar = FALSE, value = "rss") + ggtitle("RSS")
+gridExtra::grid.arrange(p11, p21, ncol = 2)
+``` 
+
+```{r}
+#computing RMSE for linear model
+linear_test = predict(lm.fit, newdata = testing)
+RMSE(linear_test, testing$house_price) 
+```
+
 ## Conclusion
 ```{r, include=FALSE}
-#Comparison using MSE
-resamp <- resamples(list(lasso = lasso.fit, ridge = ridge.fit, lm = lm.fit, knn = knn_fit))
-summary(resamp)
-parallelplot(resamp, metric = "RMSE")
-bwplot(resamp, metric = "RMSE")
+#Comparison using resample function
+#resamp <- resamples(list(lasso = lasso.fit, ridge = ridge.fit, lm = lm.fit, knn = knn_fit))
+#summary(resamp)
+#parallelplot(resamp, metric = "RMSE")
+#bwplot(resamp, metric = "RMSE")
 ```
+
+### Summary of RMSE's of Models Used
+Model | RMSE 
+------------- | -------------
+GAM  | 7.664775
+MARS | 6.512492 
+KNN | 7.953710
+Ridge Regression | 8.357914 
+Lasso | 8.367058
+Linear Regression | 8.370956 
